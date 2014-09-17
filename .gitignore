@@ -1,6 +1,7 @@
 # Backup
 *~
 *.swp
+*.core
 
 # Object files
 *.o
@@ -17,6 +18,7 @@
 *.dylib
 
 # Executables
+cli
 *.exe
 *.out
 *.app
