@@ -70,6 +70,18 @@ void print_stack(HSQUIRRELVM v, const char *msg) {
     }
 }
 
+void print_table(HSQUIRRELVM v, SQInteger idx, const char *name) {
+    printf("-- Table %s\n",name);
+    idx = (idx < 0) ? sq_gettop(v) + idx + 1 : idx;
+    sq_pushnull(v);
+    while(SQ_SUCCEEDED(sq_next(v,idx))) {
+        printf("%s: %s\n",print_object(v,-2),print_object(v,-1));
+        sq_pop(v,2);
+    }
+    sq_pop(v,1);
+
+}
+
 void printfunc(HSQUIRRELVM v,const SQChar *s,...)
 {
 	va_list vl;
@@ -143,6 +155,13 @@ void cli(HSQUIRRELVM v) {
 
         if (strcmp(line,".stack") == 0) {
             print_stack(v,"");
+            continue;
+        }
+
+        if (strcmp(line,".root") == 0) {
+            sq_pushroottable(v);
+            print_table(v,-1,"root");
+            sq_pop(v,1);
             continue;
         }
 
