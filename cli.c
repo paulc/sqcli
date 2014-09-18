@@ -11,12 +11,25 @@
 #include <unistd.h>
 
 #include <squirrel.h>
+
+#ifdef STDBLOB
 #include <sqstdblob.h>
+#endif
+#ifdef STDSYSTEM
 #include <sqstdsystem.h>
+#endif
+#ifdef STDIO
 #include <sqstdio.h>
+#endif
+#ifdef STDMATH
 #include <sqstdmath.h>	
+#endif
+#ifdef STDSTRING
 #include <sqstdstring.h>
+#endif
+#ifdef STDAUX
 #include <sqstdaux.h>
+#endif
 
 #ifdef SQUNICODE
 #define scfprintf fwprintf
@@ -266,13 +279,24 @@ int main(int argc, char* argv[]) {
 	sq_setprintfunc(v,printfunc,errorfunc);
 	sq_pushroottable(v);
 
-	//sqstd_register_bloblib(v);
-	//sqstd_register_iolib(v);
-	//sqstd_register_systemlib(v);
-	//sqstd_register_mathlib(v);
-	//sqstd_register_stringlib(v);
-
+#ifdef STDBLOB
+	sqstd_register_bloblib(v);
+#endif
+#ifdef STDSYSTEM
+	sqstd_register_systemlib(v);
+#endif
+#ifdef STDIO
+	sqstd_register_iolib(v);
+#endif
+#ifdef STDMATH
+	sqstd_register_mathlib(v);
+#endif
+#ifdef STDSTRING
+	sqstd_register_stringlib(v);
+#endif
+#ifdef STDAUX
 	sqstd_seterrorhandlers(v);
+#endif
 
     cli(v);
 	sq_close(v);
