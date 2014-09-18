@@ -1,10 +1,13 @@
 /*	see copyright notice in squirrel.h */
 
+#include <ctype.h>
+#include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <stdarg.h>
-#include <ctype.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <unistd.h>
 
 #include <squirrel.h>
 #include <sqstdblob.h>
@@ -199,6 +202,34 @@ void cli(HSQUIRRELVM v) {
         if (strcmp(line,".quit") == 0) {
             free(line);
             break;
+        }
+
+        if (strcmp(line,".edit") == 0) {
+            int fd;
+            int n = 0;
+            char template[32];
+            char cmd[64];
+            struct stat sb;
+            strcpy(template,"/tmp/sqXXXXXX");
+            if ((fd = mkstemp(template)) != -1) {
+                while (n < buffer_pos) {
+                    n += write(fd,buffer+n,buffer_pos-n);
+                }
+                snprintf(cmd,64,"${EDITOR-vi} %s", template);
+                system(cmd);
+                stat(template,&sb);
+                char *out = malloc(sb.st_size+1);
+                memset(out,0,sb.st_size+1);
+                n = 0;
+                while (n < sb.st_size) {
+                    n += read(fd,out,sb.st_size-n);
+                }
+                unlink(template);
+                printf(">>%s<< (%d)\n",out,strlen(out));
+                free(line);
+                line_length = strlen(out);
+                line = out;
+            }
         }
 
         if (strcmp(line,".root") == 0) {
