@@ -155,14 +155,16 @@ void dump(char *buf,int len) {
 void run(HSQUIRRELVM v,char *buffer,int size) {
     SQInteger _top = sq_gettop(v);
     char *result;
-    sq_compilebuffer(v,buffer,size,_SC("cli"),SQTrue);
-    sq_pushroottable(v);
-    sq_call(v,1,SQTrue,SQTrue);
-    print_stack(v,"(call)");
-    result = print_object(v,-1);
-    printf(">>%s\n", result);
-    free(result);
-    sq_settop(v,_top);
+    if (SQ_SUCCEEDED(sq_compilebuffer(v,buffer,size,_SC("cli"),SQTrue))) {
+        sq_pushroottable(v);
+        if (SQ_SUCCEEDED(sq_call(v,1,SQTrue,SQTrue))) {
+            print_stack(v,"(call)");
+            result = print_object(v,-1);
+            printf(">>%s\n", result);
+            free(result);
+        }
+        sq_settop(v,_top);
+    }
 }
 
 char *trimws(char *s) {
