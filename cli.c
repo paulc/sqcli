@@ -51,22 +51,59 @@ const char *print_type(HSQUIRRELVM v,SQInteger idx) {
     return "unknown type";
 }
 
-const char *print_object(HSQUIRRELVM v,SQInteger idx) {
+char *print_object(HSQUIRRELVM v,SQInteger idx) {
     const SQChar *s;
-    char *r;
-    sq_tostring(v,idx);
-    sq_getstring(v,-1,&s);
-    sq_pop(v,1);
-    return s;
+    idx = (idx < 0) ? sq_gettop(v) + idx + 1 : idx;
+    SQObjectType t = sq_gettype(v,idx);
+    if (t == OT_ARRAY || t == OT_TABLE) {
+        int buffer_length = 1024;
+        int buffer_pos = 0;
+        char *buffer = malloc(buffer_length);
+        char *key,*val;
+        buffer_pos += snprintf(buffer,buffer_length-buffer_pos,
+                                (t == OT_ARRAY) ? "[" : "{");
+        sq_pushnull(v);
+        while(SQ_SUCCEEDED(sq_next(v,idx))) {
+            key = print_object(v,-2);
+            val = print_object(v,-1);
+            if ((strlen(key) + strlen(val) + 4) > (buffer_length - buffer_pos)) {
+                buffer = realloc(buffer,buffer_length * 2);
+            }
+            if (t == OT_ARRAY) {
+                buffer_pos += snprintf(buffer+buffer_pos,buffer_length-buffer_pos,
+                                            "%s, ",val);
+            } else {
+                buffer_pos += snprintf(buffer+buffer_pos,buffer_length-buffer_pos,
+                                            "%s: %s, ",key,val);
+            }
+            free(key);
+            free(val);
+            sq_pop(v,2);
+        }
+        buffer_pos -= 2;
+        snprintf(buffer+buffer_pos,buffer_length-buffer_pos,
+                                (t == OT_ARRAY) ? "]" : "}");
+        sq_pop(v,1);
+        return buffer;
+    } else {
+        sq_tostring(v,idx);
+        sq_getstring(v,-1,&s);
+        char *r = strdup(s);
+        sq_pop(v,1);
+        return r;
+    }
 }
 
 void print_stack(HSQUIRRELVM v, const char *msg) {
     SQInteger i;
     SQInteger nargs = sq_gettop(v);
-    char *s;
+    const SQChar *s;
     printf("-- Stack %s\n",msg);
     for(SQInteger n=1;n<=nargs;n++) {
-        printf("Arg: %d -- %s\n",n,print_object(v,n));
+        sq_tostring(v,n);
+        sq_getstring(v,-1,&s);
+        printf("Arg: %d -- %s\n",n,s);
+        sq_pop(v,1);
     }
 }
 
@@ -74,8 +111,13 @@ void print_table(HSQUIRRELVM v, SQInteger idx, const char *name) {
     printf("-- Table %s\n",name);
     idx = (idx < 0) ? sq_gettop(v) + idx + 1 : idx;
     sq_pushnull(v);
+    char *key,*val;
     while(SQ_SUCCEEDED(sq_next(v,idx))) {
-        printf("%s: %s\n",print_object(v,-2),print_object(v,-1));
+        key = print_object(v,-2);
+        val = print_object(v,-1);
+        printf("%s: %s\n",key,val);
+        free(key);
+        free(val);
         sq_pop(v,2);
     }
     sq_pop(v,1);
@@ -112,10 +154,14 @@ void dump(char *buf,int len) {
 
 void run(HSQUIRRELVM v,char *buffer,int size) {
     SQInteger _top = sq_gettop(v);
+    char *result;
     sq_compilebuffer(v,buffer,size,_SC("cli"),SQTrue);
     sq_pushroottable(v);
     sq_call(v,1,SQTrue,SQTrue);
     print_stack(v,"(call)");
+    result = print_object(v,-1);
+    printf(">>%s\n", result);
+    free(result);
     sq_settop(v,_top);
 }
 
@@ -135,7 +181,7 @@ void cli(HSQUIRRELVM v) {
     char *ps2 = "... ";
     char *prompt = ps1;
     char *line;
-    int buffer_length = 1;
+    int buffer_length = 1024;
     char *buffer = malloc(buffer_length);
     char buffer_pos = 0;
     size_t line_length;
@@ -151,11 +197,6 @@ void cli(HSQUIRRELVM v) {
         if (strcmp(line,".quit") == 0) {
             free(line);
             break;
-        }
-
-        if (strcmp(line,".stack") == 0) {
-            print_stack(v,"");
-            continue;
         }
 
         if (strcmp(line,".root") == 0) {
@@ -178,6 +219,7 @@ void cli(HSQUIRRELVM v) {
         }
 
         linenoiseHistoryAdd(line);
+
         while ((buffer_pos + line_length + 2) > buffer_length) {
             buffer_length = buffer_length * 2;
             buffer = realloc(buffer,buffer_length);
@@ -218,7 +260,14 @@ void cli(HSQUIRRELVM v) {
 
         if (block == 0 && cont == 0 && string == 0) {
             buffer[--buffer_pos] = 0;
-            printf("Run: >>%s<<\n",buffer);
+            if (buffer[0] == '=') {
+                char *tmp = malloc(buffer_pos+8);
+                snprintf(tmp,buffer_pos+8,"return(%s)",buffer+1);
+                free(buffer);
+                buffer = tmp;
+                buffer_pos += 7;
+            }
+            printf("Run: >>%s<< (%d)\n",buffer,buffer_pos);
             run(v,buffer,buffer_pos);
             prompt = ps1;
             buffer_pos = 0;
@@ -232,27 +281,23 @@ void cli(HSQUIRRELVM v) {
 int main(int argc, char* argv[])
 {
 	HSQUIRRELVM v;
-	SQInteger retval = 0;
-	const SQChar *filename=NULL;
 	
 	v=sq_open(1024);
 
 	sq_setprintfunc(v,printfunc,errorfunc);
 	sq_pushroottable(v);
 
-	sqstd_register_bloblib(v);
-	sqstd_register_iolib(v);
-	sqstd_register_systemlib(v);
-	sqstd_register_mathlib(v);
-	sqstd_register_stringlib(v);
+	//sqstd_register_bloblib(v);
+	//sqstd_register_iolib(v);
+	//sqstd_register_systemlib(v);
+	//sqstd_register_mathlib(v);
+	//sqstd_register_stringlib(v);
 
-	//aux library
-	//sets error handlers
 	sqstd_seterrorhandlers(v);
 
     cli(v);
 	sq_close(v);
 	
-	return retval;
+	return 0;
 }
 
