@@ -29,6 +29,7 @@
 #endif
 
 #include "sds.h"
+#include "list.h"
 #include "linenoise.h"
 
 void printfunc(HSQUIRRELVM v,const SQChar *s,...) {
@@ -165,8 +166,7 @@ void cli(HSQUIRRELVM v) {
     char *ps2 = "... ";
     char *prompt = ps1;
     char *line;
-    sds cmd_history[CMD_HISTORY];
-    int cmd_history_idx = 0;
+    list *cmd_history = list_init();
     sds buffer = sdsempty();
 
     while((line = linenoise(prompt)) != NULL) {
@@ -174,6 +174,7 @@ void cli(HSQUIRRELVM v) {
         linenoiseHistoryAdd(line);
 
         if (strcmp(line,".quit") == 0) {
+            free(line);
             break;
         } else if (strncmp(line,".root",6) == 0) {
             sq_pushroottable(v);
@@ -190,11 +191,12 @@ void cli(HSQUIRRELVM v) {
             if ((fd = mkstemp(template)) != -1) {
                 if (n_args > 1) {
                     unsigned long n_hist = strtoul(args[1],(char **) NULL,10);
-                    if (n_hist < cmd_history_idx) {
+                    if (n_hist < list_count(cmd_history)) {
                         size_t n_write = 0;
-                        while (n_write < sdslen(cmd_history[n_hist])) {
-                            n_write += write(fd,cmd_history[n_hist] + n_write,
-                                                sdslen(cmd_history[n_hist]) - n_write);
+                        sds hist = (sds) (list_nth(cmd_history,n_hist)->item);
+                        while (n_write < sdslen(hist)) {
+                            n_write += write(fd,hist + n_write,
+                                        sdslen(hist) - n_write);
                         }
                     }
                 }
@@ -209,18 +211,22 @@ void cli(HSQUIRRELVM v) {
                 unlink(template);
                 sqrun(v,buffer);
                 if (sdslen(buffer) > 0) {
-                    cmd_history[cmd_history_idx++] = buffer;
+                    list_append(cmd_history,buffer);
                     buffer = sdsempty();
                 }
             }
+            sdsfree(cmd);
+            sdsfree(template);
+            sdsfreesplitres(args,n_args);
         } else if (strncmp(line,".history",8) == 0) {
             int i = 0;
-            for (i=0;i<cmd_history_idx;i++) {
+            int n_lines;
+            int n_history = list_count(cmd_history);
+            for (i=0;i<n_history;i++) {
                 printf("[%d]\n    ",i);
                 int n_lines;
-                sds *lines = sdssplitlen(cmd_history[i],
-                                         sdslen(cmd_history[i]),
-                                         "\n",1,&n_lines);
+                sds item = (sds) (list_nth(cmd_history,i)->item);
+                sds *lines = sdssplitlen(item,sdslen(item),"\n",1,&n_lines);
                 sds out = sdsjoinsds(lines,n_lines,"\n    ",5);
                 printf("%s\n",out);
                 sdsfree(out);
@@ -237,7 +243,7 @@ void cli(HSQUIRRELVM v) {
                 }
                 sqrun(v,buffer);
                 if (sdslen(buffer) > 0) {
-                    cmd_history[cmd_history_idx++] = buffer;
+                    list_append(cmd_history,buffer);
                     buffer = sdsempty();
                 }
                 prompt = ps1;
@@ -249,10 +255,10 @@ void cli(HSQUIRRELVM v) {
         free(line);
     }
     sdsfree(buffer);
+    list_free(cmd_history,(void (*)(void*))sdsfree);
 }
 
-int main(int argc, char* argv[])
-{
+int main(int argc, char* argv[]) {
 	HSQUIRRELVM v;
 	
 	v=sq_open(1024);

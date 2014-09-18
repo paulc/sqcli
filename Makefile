@@ -9,7 +9,7 @@ LDFLAGS = -L$(SQUIRREL)/lib
 LIBS = -Os -lsquirrel -lsqstdlib
 
 PROG = cli
-OBJS = cli.o linenoise.o sds.o
+OBJS = cli.o linenoise.o sds.o list.o
 
 DEBUG ?= -O0 -g
 
