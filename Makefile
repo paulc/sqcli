@@ -4,7 +4,7 @@ SQRAT = ../sqrat
 
 CC = cc
 LD = c++
-CFLAGS = -I$(SQUIRREL)/include -I$(SQRAT)/include
+CFLAGS = -I$(SQUIRREL)/include
 LDFLAGS = -L$(SQUIRREL)/lib
 LIBS = -lsquirrel -lsqstdlib
 

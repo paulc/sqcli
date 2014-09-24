@@ -102,7 +102,8 @@ void print_stack(HSQUIRRELVM v, const char *msg) {
     SQInteger nargs = sq_gettop(v);
     const SQChar *s;
     printf("-- Stack %s\n",msg);
-    for(SQInteger n=1;n<=nargs;n++) {
+    int n;
+    for(n=1;n<=nargs;n++) {
         sq_tostring(v,n);
         sq_getstring(v,-1,&s);
         printf("Arg: %d -- %s\n",n,s);
