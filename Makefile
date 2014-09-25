@@ -4,12 +4,12 @@ SQRAT = ../sqrat
 
 CC = cc
 LD = c++
-CFLAGS = -I$(SQUIRREL)/include
+CFLAGS = -Os -I$(SQUIRREL)/include
 LDFLAGS = -L$(SQUIRREL)/lib
-LIBS = -lsquirrel -lsqstdlib
+LIBS = -Os -lsquirrel -lsqstdlib
 
 PROG = cli
-OBJS = cli.o linenoise.o
+OBJS = cli.o linenoise.o sds.o
 
 DEBUG ?= -O0 -g
 
