@@ -198,10 +198,10 @@ void cli(HSQUIRRELVM v) {
                         }
                     }
                 }
-                close(fd);
+                fsync(fd);
+                lseek(fd,0,0);
                 cmd = sdscatprintf(cmd,"${EDITOR-vi} %s", template);
                 system(cmd);
-                fd = open(template,O_RDONLY);
                 while((n = read(fd,tmpbuf,READ_BUF)) > 0) {
                     buffer = sdscatlen(buffer,tmpbuf,n);
                 }
