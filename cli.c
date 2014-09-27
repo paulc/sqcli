@@ -1,5 +1,3 @@
-/*	see copyright notice in squirrel.h */
-
 #include <ctype.h>
 #include <fcntl.h>
 #include <stdarg.h>
@@ -29,6 +27,10 @@
 #endif
 #ifdef STDAUX
 #include <sqstdaux.h>
+#endif
+
+#ifdef EXT_INCLUDE
+#include EXT_INCLUDE
 #endif
 
 #ifdef SQUNICODE
@@ -97,7 +99,6 @@ sds print_sqobject(HSQUIRRELVM v,SQInteger idx) {
 }
 
 void print_stack(HSQUIRRELVM v, const char *msg) {
-    SQInteger i;
     SQInteger nargs = sq_gettop(v);
     const SQChar *s;
     printf("-- Stack %s\n",msg);
@@ -124,7 +125,6 @@ void print_table(HSQUIRRELVM v, SQInteger idx, const char *name) {
         sq_pop(v,2);
     }
     sq_pop(v,1);
-
 }
 
 void sqrun(HSQUIRRELVM v,sds buffer) {
@@ -189,10 +189,6 @@ void cli(HSQUIRRELVM v) {
         if (strcmp(line,".quit") == 0) {
             free(line);
             break;
-        } else if (strncmp(line,".root",6) == 0) {
-            sq_pushroottable(v);
-            print_table(v,-1,"Root");
-            sq_pop(v,1);
         } else if (strncmp(line,".edit",5) == 0) {
             int fd;
             size_t n;
@@ -233,7 +229,6 @@ void cli(HSQUIRRELVM v) {
             sdsfreesplitres(args,n_args);
         } else if (strncmp(line,".history",8) == 0) {
             int i = 0;
-            int n_lines;
             int n_history = list_count(cmd_history);
             for (i=0;i<n_history;i++) {
                 printf("[%d]\n    ",i);
@@ -245,7 +240,6 @@ void cli(HSQUIRRELVM v) {
                 sdsfree(out);
                 sdsfreesplitres(lines,n_lines);
             }
-        } else if (strncmp(line,".save",5) == 0) {
         } else {
             buffer = sdscat(buffer,line);
             if (statement_complete(buffer)) {
@@ -296,6 +290,11 @@ int main(int argc, char* argv[]) {
 #endif
 #ifdef STDAUX
 	sqstd_seterrorhandlers(v);
+#endif
+
+#ifdef EXT_REGISTER_FUNC
+    // Register any extensions
+    EXT_REGISTER_FUNC(v);
 #endif
 
     cli(v);
